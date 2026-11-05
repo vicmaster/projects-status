@@ -24,20 +24,28 @@ const run = (stdout: string) => ({
   },
 })
 
-test('scans any parent folder of repos and lists each with its status', async ($, on) => {
+test('lists child repos and grouped grandchild repos from one mixed folder', async ($, on) => {
   on('command.register', () => ({ value: { command: 'projects-status' } }))
   on('clock.now', () => ({ value: 1761703600000 }))
   on('clock.every', () => ({ value: undefined }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('fs.list', () => ({
-    value: [
-      { name: 'alpha', kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
-      { name: 'package-lock.json', kind: 'file', size: 9, mtimeMs: 0, isLink: false },
-    ],
+  // A mixed parent: "alpha" is a repo itself, "rails" only groups repos.
+  on('fs.list', (_, e) => ({
+    value:
+      e.path === '/work/code'
+        ? [
+            { name: 'alpha', kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+            { name: 'rails', kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+            { name: 'package-lock.json', kind: 'file', size: 9, mtimeMs: 0, isLink: false },
+          ]
+        : e.path === '/work/code/rails'
+          ? [{ name: 'blog', kind: 'dir', size: 0, mtimeMs: 0, isLink: false }]
+          : [],
   }))
-  // The parent itself is not a repo; its child folders are.
-  on('fs.exists', (_, e) => ({ value: e.path !== '/work/code/.git' }))
+  on('fs.exists', (_, e) => ({
+    value: e.path === '/work/code/alpha/.git' || e.path === '/work/code/rails/blog/.git',
+  }))
   on('process.run', (_, e) =>
     e.argv.includes('status')
       ? run('# branch.head main\n# branch.ab +2 -0\n1 .M N... 100644 100644 100644 abc abc app.rb\n')
@@ -53,6 +61,7 @@ test('scans any parent folder of repos and lists each with its status', async ($
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /alpha/ }))?.text).toBe('alpha')
+  expect((await ui.find({ type: 'Text', text: /blog/ }))?.text).toBe('rails/blog')
   expect((await ui.find({ type: 'Text', text: /✚/ }))?.text).toBe('✚1')
   expect((await ui.find({ type: 'Text', text: /↑/ }))?.text).toBe('↑2')
   expect((await ui.find({ type: 'Text', text: /parser/ }))?.text).toBe('Add request parser')

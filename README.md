@@ -14,7 +14,7 @@ It rescans every 5 minutes, on the pane's **Refresh** button, or with the `/proj
 
 ## Activation
 
-No configuration. The mod activates only when the session's working directory is **not** itself a git repository but has at least one child directory that is. In any other session it does nothing.
+No configuration. The mod activates only when the session's working directory is **not** itself a git repository but holds repos within two levels: child directories that are git repos, grandchild repos under grouping folders (`~/Projects/rails/blog` shows as `rails/blog`), or a mix of both. In any other session it does nothing.
 
 ## Install
 

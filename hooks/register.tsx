@@ -24,12 +24,29 @@ const git = async ($: EngineInterface, dir: string, args: string[]) => {
   return exitCode === 0 ? stdout : null
 }
 
+const isCandidate = (entry: { kind: string; name: string }) =>
+  entry.kind === 'dir' && !entry.name.startsWith('.') && entry.name !== 'node_modules'
+
+// Repos among the children, and among the grandchildren of children that are
+// not repos themselves (a grouping folder like "rails" or "clientX"), named
+// "group/repo". Both depths work at once, so flat and grouped structures mix.
 const findRepos = async ($: EngineInterface, dir: string) => {
   const entries = await $.fs.list(dir)
   const repos: string[] = []
   for (const entry of entries) {
-    if (entry.kind !== 'dir' || entry.name.startsWith('.')) continue
-    if (await $.fs.exists(`${dir}/${entry.name}/.git`)) repos.push(entry.name)
+    if (!isCandidate(entry)) continue
+    if (await $.fs.exists(`${dir}/${entry.name}/.git`)) {
+      repos.push(entry.name)
+      continue
+    }
+
+    const children = await $.fs.list(`${dir}/${entry.name}`).catch(() => [])
+    for (const child of children) {
+      if (!isCandidate(child)) continue
+      if (await $.fs.exists(`${dir}/${entry.name}/${child.name}/.git`)) {
+        repos.push(`${entry.name}/${child.name}`)
+      }
+    }
   }
 
   return repos
@@ -164,6 +181,9 @@ export const register: Register = on => {
           const isStale =
             project.lastCommitAt === 0 || now - project.lastCommitAt > 30 * 24 * 3600 * 1000
           const isOddBranch = project.branch !== 'main' && project.branch !== 'master'
+          const slash = project.name.indexOf('/')
+          const group = slash > 0 ? project.name.slice(0, slash + 1) : null
+          const shortName = slash > 0 ? project.name.slice(slash + 1) : project.name
 
           return (
             <Box key={project.name} gap={1} alignItems="center">
@@ -175,7 +195,12 @@ export const register: Register = on => {
               </Text>
               <Box width={22} flexShrink={0}>
                 <Text weight="medium" dimColor={isStale} wrap="truncate">
-                  {project.name}
+                  {group !== null && (
+                    <Text weight="regular" dimColor>
+                      {group}
+                    </Text>
+                  )}
+                  {shortName}
                 </Text>
               </Box>
               {(isOddBranch || project.dirty > 0 || project.ahead > 0 || project.behind > 0) && (

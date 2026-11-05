@@ -1,6 +1,6 @@
 {
   "name": "projects-status",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pane showing the latest git status of every child repo when the session runs in a folder of projects",
   "types": "./types/index.d.ts"
 }
